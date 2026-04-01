@@ -1,0 +1,57 @@
+name: Firmware Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build firmware
+        run: pio run -e esp32c3
+
+      - name: Run tests
+        run: pio test -e esp32c3 --without-uploading
+        continue-on-error: true
+
+      - name: Upload build artifact
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ github.ref_name }}
+          path: .pio/build/esp32c3/firmware.bin
+
+      - name: Publish to backend
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          SHA256=$(sha256sum .pio/build/esp32c3/firmware.bin | cut -d' ' -f1)
+          SIZE=$(stat -c%s .pio/build/esp32c3/firmware.bin)
+          VERSION="${GITHUB_REF_NAME#v}"
+          curl -X POST "${{ secrets.BACKEND_URL }}/admin/releases" \
+            -H "Authorization: Bearer ${{ secrets.ADMIN_TOKEN }}" \
+            -F "file=@.pio/build/esp32c3/firmware.bin" \
+            -F "version=$VERSION" \
+            -F "sha256=$SHA256" \
+            -F "size=$SIZE" \
+            -F "platform=esp32c3"
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: .pio/build/esp32c3/firmware.bin
+          generate_release_notes: true

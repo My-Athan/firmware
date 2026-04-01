@@ -1,0 +1,37 @@
+{
+  "deviceId": "unset",
+  "firmwareVersion": "0.1.0",
+  "wifi": { "ssid": "", "password": "" },
+  "location": {
+    "lat": 0.0, "lon": 0.0,
+    "city": "", "country": "",
+    "timezone": "UTC",
+    "method": "ISNA"
+  },
+  "audio": {
+    "volume": 20,
+    "defaultTrack": 1,
+    "prayers": {
+      "fajr":    { "track": 1, "enabled": true, "doaa": { "enabled": false } },
+      "dhuhr":   { "track": 1, "enabled": true, "doaa": { "enabled": false } },
+      "asr":     { "track": 1, "enabled": true, "doaa": { "enabled": false } },
+      "maghrib": { "track": 1, "enabled": true, "doaa": { "enabled": false } },
+      "isha":    { "track": 1, "enabled": true, "doaa": { "enabled": false } }
+    }
+  },
+  "led": {
+    "enabled": true,
+    "preAthanMinutes": 10,
+    "preAthanPattern": "slow_blink",
+    "playingPattern": "solid",
+    "errorPattern": "fast_blink",
+    "noWifiPattern": "pulse"
+  },
+  "timetable": {
+    "fetchedAt": "",
+    "offsets": { "fajr": 0, "dhuhr": 0, "asr": 0, "maghrib": 0, "isha": 0 },
+    "days": {}
+  },
+  "ota": { "checkHour": 3, "lastChecked": "" },
+  "stats": { "lastSent": "" }
+}
