@@ -678,6 +678,268 @@ ESP32-C3 SuperMini Pins:
 
 ---
 
+---
+
+## Security Hardening
+
+### Device Authentication & API Keys
+- **Problem**: Storing API keys in plaintext config is a vulnerability
+- **Solution**:
+  - Device API key derived from **hardware MAC address + server-side salt**
+  - Backend stores: `device_api_key = HMAC-SHA256(device_mac + BACKEND_SECRET)`
+  - Device never stores API key in config.json; derives it on boot from own MAC
+  - Backend validates request: `compute_key(request.mac) == request.provided_key`
+
+### Local HTTP Authentication
+- **Problem**: Unencrypted local HTTP on `myathan.local` allows LAN-based tampering
+- **Solution**:
+  - Add optional **basic auth** for local HTTP endpoints: `/status`, `/trigger`, `/config` (user-configurable PIN)
+  - Endpoints are rate-limited to 60 req/min per device
+  - WiFi credentials not exposed via local HTTP (only GET /status)
+  - Sensitive writes (/trigger, /config) require auth token
+
+### Cloud Communication
+- **Backend rate limiting**: 60 requests/min per device ID
+- **TLS certificate pinning** (optional, Phase 2): Pin Cloudflare + Let's Encrypt root CAs to ESP32 firmware
+- **Heartbeat auth**: Include HMAC of deviceId + timestamp to prevent spoofing
+- **Config versioning**: Backend tracks config version; device only accepts config from trusted source
+
+### Offline Security
+- **Cached timetable**: Encrypted at rest in LittleFS (optional, Phase 2)
+- **Device resets to defaults** if offline >30 days (configurable)
+- **No credential leakage**: WiFi password stored in LittleFS only; not logged or transmitted
+
+---
+
+## Connection State Machine
+
+### Firmware Connection States
+
+Device moves through these states based on WiFi + backend connectivity:
+
+```
+┌─────────────────────┐
+│   DISCONNECTED      │  No WiFi, no cloud
+├─────────────────────┤
+│ Actions:            │
+│ - BLE advertising   │
+│ - LED: pulse        │
+│ - Use cached times  │
+└──────────┬──────────┘
+           │ (WiFi found & connected)
+           ▼
+┌─────────────────────┐
+│   WIFI_CONNECTED    │  WiFi OK, checking cloud
+├─────────────────────┤
+│ Actions:            │
+│ - Sync NTP time     │
+│ - Heartbeat to BE   │
+│ - LED: slow blink   │
+└──────────┬──────────┘
+           │ (Backend responds)
+           ▼
+┌─────────────────────┐
+│   CLOUD_SYNCED      │  Full sync: timetable + config ready
+├─────────────────────┤
+│ Actions:            │
+│ - Poll config every 5min
+│ - Heartbeat hourly  │
+│ - LED: off (idle)   │
+│ - Play athan at time│
+└──────────┬──────────┘
+           │ (Playing athan)
+           ▼
+┌─────────────────────┐
+│   PLAYING           │  DFPlayer actively playing audio
+├─────────────────────┤
+│ Actions:            │
+│ - LED: solid        │
+│ - Cancel pre-athan  │
+│ - Queue doaa after  │
+└──────────┬──────────┘
+           │ (Finished or stopped)
+           ▼
+    [back to CLOUD_SYNCED]
+```
+
+**WiFiManager + ESPAsyncWebServer Mutual Exclusion**:
+- Both compete for port 80 and WiFi scan results
+- Solution: 
+  1. ESPAsyncWebServer starts once WiFi connected (CLOUD_SYNCED state)
+  2. On WiFi loss, stop HTTP server → restart WiFiManager captive portal
+  3. WiFiManager captive portal uses same port 80 (no conflict when server is stopped)
+  4. Once WiFi reconnected, stop WiFiManager → restart ESPAsyncWebServer
+
+---
+
+## GPIO Pin Allocation & UART Configuration
+
+### ESP32-C3 SuperMini Pin Map
+
+| GPIO | Function | Purpose | Notes |
+|---|---|---|---|
+| **GPIO20** | UART0 RX | Serial/CDC logging | USB-CDC debug output (not user-configurable) |
+| **GPIO21** | UART0 TX | Serial/CDC logging | USB-CDC debug output (not user-configurable) |
+| **GPIO6** | UART1 TX | DFPlayer Mini command | Hardware UART, 9600 baud, must use Serial1 |
+| **GPIO7** | UART1 RX | DFPlayer Mini response | Hardware UART, 9600 baud, must use Serial1 |
+| **GPIO8** | GPIO | LED status indicator | PWM-capable for brightness, low=on (active low) |
+| **GPIO9** | GPIO | Button (reset/trigger) | Pull-up enabled, debounced 50ms |
+| **GPIO0–5, 10–19** | (available) | Future expansion | SPI for SD card (future OTA audio) |
+
+**Critical**: 
+- Use **Hardware Serial1** (GPIO6/7) for DFPlayer, NOT SoftwareSerial → avoids timing issues, supports 9600 baud reliably
+- Do NOT use GPIO6/7 for other functions
+- GPIO8/9 can be remapped in config but shown here are defaults
+
+---
+
+## Disaster Recovery & Infrastructure Resilience
+
+### PostgreSQL Backup & Recovery
+
+**Daily Backup Process**:
+1. **Automated daily dump** (3AM UTC): `pg_dump myathan_db | gzip` → uploaded to Cloudflare R2 with timestamp
+2. **Retention policy**: 30 days of backups (oldest auto-deleted)
+3. **Offsite storage**: R2 is geographically distributed; redundant
+
+**Recovery Procedure** (if database lost):
+1. SSH into Hostinger VPS
+2. Stop Coolify: `coolify system:stop`
+3. Download latest backup: `aws s3 cp s3://myathan-files/backups/latest.sql.gz .`
+4. Decompress: `gunzip latest.sql.gz`
+5. Restore: `psql myathan_db < latest.sql`
+6. Restart Coolify: `coolify system:start`
+7. Verify: `curl https://api.myathan.com/health`
+
+**Backup Verification** (weekly):
+- Coolify automatically verifies restore-ability of backups
+- Manual test on staging env: full restore from backup, run integration tests
+
+### Application Recovery
+
+**Firmware Binaries & Releases**:
+- All firmware binaries stored in R2 (`myathan-files/releases/`)
+- CI/CD on GitHub Actions builds binaries on tag push
+- Backend downloads binary from R2 on admin OTA push
+- Device downloads binary from backend on check (no direct R2 access)
+
+**Device OTA Rollback**:
+- ESP32-C3 has dual-partition OTA: app0 (current) + app1 (previous)
+- If device doesn't heartbeat within **300s** post-update, automatically boot from app1 (previous partition)
+- Admin can force rollback via backend: `POST /admin/releases/:id/rollback`
+
+**Web App Recovery**:
+- PWA is static (Vite build output)
+- Stored on Coolify + CDN (future)
+- Rollback: Coolify keeps 5 previous builds; revert with one click
+- Admin panel same as PWA (separate SPA in same repo)
+
+### Coolify Disaster Recovery
+
+**Coolify Configuration Export**:
+- Weekly automated export of docker-compose files + .env → R2
+- Allows full reconstruction on new VPS if needed
+
+**High Availability (optional, Phase 2)**:
+- Current: Single VPS + PostgreSQL replica to staging server (manual)
+- Future: Second VPS running hot standby; load balancer in front
+
+---
+
+## OTA Update Safety & Rollback Logic
+
+### Update Flow
+
+1. **Check Phase** (3AM daily or admin-triggered):
+   - Device: `GET /api/v1/releases/latest?platform=esp32c3&current=0.1.0`
+   - Backend returns: `{version: "0.2.0", url: "https://r2.../v0.2.0.bin", sha256: "abc123..."}`
+
+2. **Pre-Update Validation**:
+   - Check free heap: must have >200KB available (safety margin)
+   - Check power: voltage >3.0V (not in low-battery state)
+   - Check storage: must have >1MB free in flash (partition size check)
+
+3. **Download Phase**:
+   - `GET` binary from backend URL (or direct R2)
+   - Stream to app1 partition (via `esp_ota_begin()`)
+   - Compute running SHA256
+
+4. **Verify Phase**:
+   - Ensure downloaded SHA256 matches expected
+   - If mismatch: abort, retry up to 3 times, then give up and log error
+
+5. **Flash & Reboot**:
+   - Finalize OTA (`esp_ota_end()`)
+   - Set app1 as boot partition
+   - Reboot
+
+6. **Boot Phase** (app1):
+   - If app1 boots successfully, mark it as permanent partition
+   - Send heartbeat to backend: `POST /heartbeat {version: "0.2.0", status: "success"}`
+
+7. **Rollback Trigger** (if app1 fails):
+   - Boot watchdog timeout **300 seconds** before rollback
+   - If heartbeat not sent within 300s post-update → device reboots into app0
+   - On reboot to app0, firmware detects failure, sends: `POST /heartbeat {version: "0.1.0", status: "ota_failed", reason: "watchdog"}`
+   - Backend sees rollback; admin notified via alert
+
+### Device-Side Fallback Configuration
+
+```cpp
+#define OTA_ROLLBACK_TIMEOUT_MS 300000  // 5 minutes (configurable via config.json)
+#define OTA_MAX_RETRIES 3
+#define OTA_SAFE_HEAP_KB 200
+```
+
+---
+
+## Config Versioning & Migrations
+
+### Config Schema Evolution
+
+**Current schema version**: `configVersion: 1`
+
+When config schema changes (e.g., adding new field, changing structure):
+1. Increment `CONFIG_VERSION` in `src/config/defaults.h`
+2. Add migration function in `ConfigManager.cpp`:
+   ```cpp
+   bool ConfigManager::_migratev1_to_v2() {
+       // Transform old config to new schema
+       // E.g., rename "audioTrack" → "audio.defaultTrack"
+       return save();
+   }
+   ```
+3. In `load()`, check version and call migration if needed
+4. Backend also tracks config version, can intelligently push configs to older devices
+
+### Example: Adding a new field
+
+**Old config.json**:
+```json
+{ "deviceId": "myathan-123", "volume": 20 }
+```
+
+**New config.json** (v2):
+```json
+{ "deviceId": "myathan-123", "configVersion": 2, "audio": {"volume": 20}, "network": {"timeout": 30} }
+```
+
+**Migration**:
+```cpp
+void ConfigManager::_migratev1_to_v2() {
+    if (_doc["configVersion"] < 2) {
+        int oldVolume = _doc["volume"] | 20;
+        _doc.clear();
+        _doc["configVersion"] = 2;
+        _doc["audio"]["volume"] = oldVolume;
+        _doc["network"]["timeout"] = 30;
+        save();
+    }
+}
+```
+
+---
+
 ## Verification Plan
 
 ### Firmware

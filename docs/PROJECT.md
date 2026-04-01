@@ -142,8 +142,58 @@ Since we're in the `firmware` repo, the first concrete deliverable is the Platfo
 7. **`.gitignore`** — PlatformIO ignores
 8. **`PROJECT.md`** — Full backlog (from this plan)
 
+---
+
+## Additional Stories — Missing Scope (Post-Review)
+
+These stories were identified during code review as critical missing scope:
+
+### Testing Strategy (Cross-repo)
+| ID | Type | Story | Acceptance Criteria |
+|---|---|---|---|
+| T1 | Task | Firmware: Unit test framework (Unity) | PlatformIO test suite configured; example config parsing test passes |
+| T2 | Story | Firmware: Prayer scheduler unit tests | Test cases: exact match, pre-athan, doaa delay, skip repeated, offline fallback |
+| T3 | Story | Backend: API integration tests (Vitest) | Test: timetable endpoint, device registry, config sync, OTA release flow |
+| T4 | Story | Web: UI component tests (Testing Library) | Test: BLE provisioning flow, device list, config form, admin data grid |
+| T5 | Story | End-to-end test (E2E) | Selenium/Cypress: setup device → change location → verify athan plays at correct time |
+
+### Error Codes & Diagnostics
+| ID | Type | Story | Acceptance Criteria |
+|---|---|---|---|
+| E1 | Task | Firmware: Error code enum | Define 20+ error codes (WiFi failed, DFPlayer busy, OTA fail, etc.) |
+| E2 | Story | Firmware: Error logging & recovery | Log errors with code; retry logic; heartbeat includes last error |
+| E3 | Story | Backend: Error code documentation | API error codes documented; frontend can map to user messages |
+| E4 | Story | Web: Error boundary UI | Display user-friendly error messages; retry buttons for transient failures |
+
+### Security Hardening
+| ID | Type | Story | Acceptance Criteria |
+|---|---|---|---|
+| S1 | Story | Firmware: Device API key derivation | API key = HMAC-SHA256(MAC + backend_secret); not stored in config |
+| S2 | Story | Firmware: Local HTTP basic auth (optional) | PIN-based auth for /trigger, /config endpoints |
+| S3 | Story | Backend: Rate limiting | 60 req/min per device ID; return 429 on limit |
+| S4 | Story | Backend: TLS cert pinning (optional) | Pin Cloudflare + Let's Encrypt root CAs in firmware |
+| S5 | Story | Backend: GDPR compliance | User data export endpoint; device deletion cascades |
+
+### First-Boot Offline Fallback
+| ID | Type | Story | Acceptance Criteria |
+|---|---|---|---|
+| O1 | Story | Firmware: Embedded default timetable | Hardcode Mecca prayer times (or nearest city) in firmware binary |
+| O2 | Story | Firmware: Offline scheduler | On first boot with no internet, use embedded timetable for 7 days |
+| O3 | Story | Backend: Config versioning & migrations | Track config schema version; auto-migrate on load |
+
+### Internationalization (i18n)
+| ID | Type | Story | Acceptance Criteria |
+|---|---|---|---|
+| I1 | Task | Web PWA: i18n setup (react-i18next) | String catalogs for English + Arabic (MSA) |
+| I2 | Story | Web PWA: Prayer name i18n | Fajr/Dhuhr/Asr/Maghrib/Isha in Arabic + English |
+| I3 | Story | Admin Panel: i18n setup | Dashboard + admin pages in English + Arabic |
+
+---
+
 ## Verification
 - `pio run` compiles successfully targeting ESP32-C3
 - Project structure matches the plan
-- `PROJECT.md` contains all 6 epics with ~50 stories
-- Changes committed and pushed to `claude/myathan-device-setup-9Y3ml`
+- `docs/ARCHITECTURE.md` contains security, disaster recovery, connection state machine, GPIO table sections
+- `docs/PROJECT.md` contains all 6 epics + ~60 stories across firmware, backend, web, testing, security, i18n
+- `README.md` is comprehensive with pin mapping, config schema, build instructions
+- Changes committed and pushed to feature branch and main branch
