@@ -1,5 +1,6 @@
 #include "ConfigManager.h"
 #include "defaults.h"
+#include <esp_mac.h>
 
 static const char* PRAYER_KEYS[] = {"fajr", "dhuhr", "asr", "maghrib", "isha"};
 

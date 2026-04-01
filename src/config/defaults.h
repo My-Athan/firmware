@@ -3,6 +3,9 @@
 // Default configuration values for MyAthan device
 // These are used when no config.json exists on LittleFS (first boot)
 
+// Config schema version — bump when config.json format changes to trigger migrations
+#define CONFIG_VERSION 1
+
 #define DEFAULT_VOLUME 20
 #define DEFAULT_TRACK 1
 #define DEFAULT_PRE_ATHAN_MINUTES 10
@@ -12,13 +15,16 @@
 #define DEFAULT_STATS_INTERVAL_MS 86400000      // 24 hours
 
 // Pin assignments — ESP32-C3 SuperMini
-#define PIN_DFPLAYER_TX 4
-#define PIN_DFPLAYER_RX 5
+// UART1 (Hardware) for DFPlayer Mini: TX=GPIO6, RX=GPIO7
+// UART0 (Serial/CDC) reserved for logging
+#define PIN_DFPLAYER_TX 6
+#define PIN_DFPLAYER_RX 7
 #define PIN_LED 8
 #define PIN_BUTTON 9
 
 // DFPlayer
 #define DFPLAYER_BAUD 9600
+#define DFPLAYER_UART 1  // Hardware Serial1
 
 // Prayer names (index into config arrays)
 #define PRAYER_FAJR 0
