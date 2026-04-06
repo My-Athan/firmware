@@ -366,7 +366,7 @@ firmware/
 ├── data/
 │   └── config.json                     # Default config (v2 schema)
 ├── include/
-│   └── version.h                       # Firmware version
+│   └── myathan_version.h               # Firmware version
 ├── platformio.ini                      # Build configuration
 ├── CLAUDE.md                           # AI assistant project context
 └── .claude/skills/                     # Claude Code slash commands

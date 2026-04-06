@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include "version.h"
+#include <myathan_version.h>
 
 // ── Managers ────────────────────────────────────────────────
 #include "config/ConfigManager.h"

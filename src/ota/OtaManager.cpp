@@ -1,5 +1,5 @@
 #include "OtaManager.h"
-#include <version.h>
+#include <myathan_version.h>
 #include "../config/ConfigManager.h"
 #include "../time/NtpSync.h"
 #include "../led/LedManager.h"
