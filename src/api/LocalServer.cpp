@@ -1,4 +1,5 @@
 #include "LocalServer.h"
+#include "../../include/version.h"
 #include "../config/ConfigManager.h"
 #include "../audio/AudioManager.h"
 #include "../prayer/PrayerScheduler.h"
@@ -7,6 +8,7 @@
 #include "../config/defaults.h"
 #include <ESPmDNS.h>
 #include <ArduinoJson.h>
+#include <AsyncJson.h>
 
 // Simple rate limiter: track last request time per endpoint category
 static unsigned long _lastTriggerMs = 0;

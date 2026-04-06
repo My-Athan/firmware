@@ -1,15 +1,18 @@
 #include "BackendClient.h"
+#include "../../include/version.h"
 #include "../config/ConfigManager.h"
 #include "../config/defaults.h"
 #include "../time/NtpSync.h"
 #include "../sync/MultiRoomSync.h"
+#include "../ota/OtaManager.h"
 #include <HTTPClient.h>
 #include <WiFi.h>
 
-void BackendClient::begin(ConfigManager* config, NtpSync* ntp, MultiRoomSync* sync) {
+void BackendClient::begin(ConfigManager* config, NtpSync* ntp, MultiRoomSync* sync, OtaManager* ota) {
     _config = config;
     _ntp = ntp;
     _sync = sync;
+    _ota = ota;
 
     _baseUrl = "https://api.myathan.com";  // TODO: make configurable
     Serial.println("[Backend] Client initialized");
@@ -131,11 +134,19 @@ bool BackendClient::checkOtaUpdate() {
     }
 
     bool available = response["updateAvailable"] | false;
-    if (available) {
-        const char* version = response["version"];
-        int size = response["size"];
-        Serial.printf("[Backend] OTA update available: v%s (%d bytes)\n", version, size);
-        // TODO: Trigger OtaManager to download and flash
+    if (available && _ota) {
+        OtaUpdateInfo info = {};
+        strlcpy(info.version, response["version"] | "", sizeof(info.version));
+        strlcpy(info.sha256, response["sha256"] | "", sizeof(info.sha256));
+        strlcpy(info.url, response["url"] | "", sizeof(info.url));
+        info.size = response["size"] | 0;
+
+        Serial.printf("[Backend] OTA update available: v%s (%d bytes)\n", info.version, info.size);
+
+        if (strlen(info.url) > 0 && info.size > 0) {
+            _ota->applyUpdate(info);
+            // If we get here, update failed (applyUpdate reboots on success)
+        }
     }
 
     return true;
