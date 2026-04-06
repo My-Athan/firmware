@@ -1,5 +1,5 @@
 #include "LocalServer.h"
-#include "../../include/version.h"
+#include <version.h>
 #include "../config/ConfigManager.h"
 #include "../audio/AudioManager.h"
 #include "../prayer/PrayerScheduler.h"
