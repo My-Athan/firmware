@@ -1,6 +1,6 @@
 #include "ConfigManager.h"
 #include "defaults.h"
-#include <version.h>
+#include <myathan_version.h>
 #include <esp_mac.h>
 
 const char* ConfigManager::PRAYER_KEYS[5] = {"fajr", "dhuhr", "asr", "maghrib", "isha"};

@@ -1,5 +1,5 @@
 #include "BackendClient.h"
-#include <version.h>
+#include <myathan_version.h>
 #include "../config/ConfigManager.h"
 #include "../config/defaults.h"
 #include "../time/NtpSync.h"
