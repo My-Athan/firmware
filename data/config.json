@@ -1,4 +1,5 @@
 {
+  "configVersion": 2,
   "deviceId": "unset",
   "firmwareVersion": "0.1.0",
   "wifi": { "ssid": "", "password": "" },
@@ -6,26 +7,64 @@
     "lat": 0.0, "lon": 0.0,
     "city": "", "country": "",
     "timezone": "UTC",
-    "method": "ISNA"
+    "method": "ISNA",
+    "asrJuristic": "standard",
+    "highLatitudeRule": "angle_based"
   },
   "audio": {
     "volume": 20,
     "defaultTrack": 1,
     "prayers": {
-      "fajr":    { "track": 1, "enabled": true, "doaa": { "enabled": false } },
-      "dhuhr":   { "track": 1, "enabled": true, "doaa": { "enabled": false } },
-      "asr":     { "track": 1, "enabled": true, "doaa": { "enabled": false } },
-      "maghrib": { "track": 1, "enabled": true, "doaa": { "enabled": false } },
-      "isha":    { "track": 1, "enabled": true, "doaa": { "enabled": false } }
+      "fajr":    { "track": 1, "enabled": true, "volume": 0, "iqamaDelay": 0, "iqamaTrack": 0, "ramadanTrack": 0, "doaa": { "enabled": false, "track": 0, "delayMin": 3 } },
+      "dhuhr":   { "track": 1, "enabled": true, "volume": 0, "iqamaDelay": 0, "iqamaTrack": 0, "ramadanTrack": 0, "doaa": { "enabled": false, "track": 0, "delayMin": 3 } },
+      "asr":     { "track": 1, "enabled": true, "volume": 0, "iqamaDelay": 0, "iqamaTrack": 0, "ramadanTrack": 0, "doaa": { "enabled": false, "track": 0, "delayMin": 3 } },
+      "maghrib": { "track": 1, "enabled": true, "volume": 0, "iqamaDelay": 0, "iqamaTrack": 0, "ramadanTrack": 0, "doaa": { "enabled": false, "track": 0, "delayMin": 3 } },
+      "isha":    { "track": 1, "enabled": true, "volume": 0, "iqamaDelay": 0, "iqamaTrack": 0, "ramadanTrack": 0, "doaa": { "enabled": false, "track": 0, "delayMin": 3 } }
     }
+  },
+  "schedule": {
+    "fridayJumuah": true,
+    "jumuahTrack": 1
+  },
+  "ramadan": {
+    "enabled": true,
+    "suhoorAlertMinutes": 30,
+    "suhoorMode": "sound",
+    "suhoorTrack": 0,
+    "suhoorLed": true,
+    "iftarAlertEnabled": true,
+    "iftarTrack": 0
+  },
+  "hijri": {
+    "adjustment": 0
+  },
+  "holidays": {
+    "eidFitr":      { "enabled": true, "track": 0, "postAthanTrack": 0 },
+    "eidAdha":      { "enabled": true, "track": 0, "postAthanTrack": 0 },
+    "mawlid":       { "enabled": true, "track": 0 },
+    "israMiraj":    { "enabled": true, "track": 0 },
+    "muharram":     { "enabled": true, "track": 0 },
+    "ashura":       { "enabled": true, "track": 0 },
+    "laylatAlQadr": { "enabled": true, "track": 0 }
   },
   "led": {
     "enabled": true,
     "preAthanMinutes": 10,
     "preAthanPattern": "slow_blink",
     "playingPattern": "solid",
+    "iqamaPattern": "pulse",
     "errorPattern": "fast_blink",
     "noWifiPattern": "pulse"
+  },
+  "multiRoom": {
+    "groupId": "",
+    "syncOffsetMs": 0
+  },
+  "recovery": {
+    "lastState": "idle",
+    "lastPrayerPlayed": -1,
+    "lastPlayTimestamp": 0,
+    "playedTodayMask": 0
   },
   "timetable": {
     "fetchedAt": "",
