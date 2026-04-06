@@ -1,5 +1,6 @@
 #include "ConfigManager.h"
 #include "defaults.h"
+#include "../../include/version.h"
 #include <esp_mac.h>
 
 const char* ConfigManager::PRAYER_KEYS[5] = {"fajr", "dhuhr", "asr", "maghrib", "isha"};
@@ -47,6 +48,13 @@ bool ConfigManager::load() {
 
     if (error) {
         Serial.printf("[Config] JSON parse error: %s\n", error.c_str());
+        _applyDefaults();
+        return save();
+    }
+
+    // Validate critical fields
+    if (!_validateConfig()) {
+        Serial.println("[Config] Validation failed, resetting to defaults");
         _applyDefaults();
         return save();
     }
@@ -473,6 +481,47 @@ void ConfigManager::_migrateIfNeeded() {
 
     save();
     Serial.printf("[Config] Migration complete, now v%d\n", CONFIG_VERSION);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Config validation
+// ─────────────────────────────────────────────────────────────
+
+bool ConfigManager::_validateConfig() {
+    // Must have deviceId
+    const char* id = _doc["deviceId"] | "";
+    if (strlen(id) == 0 || strlen(id) > 32) return false;
+
+    // Volume must be 0-30
+    int vol = _doc["audio"]["volume"] | -1;
+    if (vol < 0 || vol > 30) {
+        _doc["audio"]["volume"] = DEFAULT_VOLUME;
+    }
+
+    // Latitude -90 to 90, longitude -180 to 180
+    float lat = _doc["location"]["lat"] | 0.0f;
+    float lon = _doc["location"]["lon"] | 0.0f;
+    if (lat < -90.0f || lat > 90.0f) _doc["location"]["lat"] = 0.0f;
+    if (lon < -180.0f || lon > 180.0f) _doc["location"]["lon"] = 0.0f;
+
+    // Hijri adjustment -2 to 2
+    int adj = _doc["hijri"]["adjustment"] | 0;
+    if (adj < -2 || adj > 2) _doc["hijri"]["adjustment"] = 0;
+
+    // Per-prayer volume 0-30, iqama delay 0-60
+    for (int i = 0; i < PRAYER_COUNT; i++) {
+        JsonObject p = _doc["audio"]["prayers"][PRAYER_KEYS[i]];
+        int pVol = p["volume"] | 0;
+        if (pVol < 0 || pVol > 30) p["volume"] = 0;
+        int iqama = p["iqamaDelay"] | 0;
+        if (iqama < 0 || iqama > 60) p["iqamaDelay"] = 0;
+    }
+
+    // Suhoor alert 0-120 minutes
+    int suhoor = _doc["ramadan"]["suhoorAlertMinutes"] | 30;
+    if (suhoor < 0 || suhoor > 120) _doc["ramadan"]["suhoorAlertMinutes"] = 30;
+
+    return true;
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -6,10 +6,11 @@
 class ConfigManager;
 class NtpSync;
 class MultiRoomSync;
+class OtaManager;
 
 class BackendClient {
 public:
-    void begin(ConfigManager* config, NtpSync* ntp, MultiRoomSync* sync);
+    void begin(ConfigManager* config, NtpSync* ntp, MultiRoomSync* sync, OtaManager* ota = nullptr);
     void update();   // Call from loop() — handles polling intervals
 
     // Manual triggers
@@ -27,6 +28,7 @@ private:
     ConfigManager* _config = nullptr;
     NtpSync* _ntp = nullptr;
     MultiRoomSync* _sync = nullptr;
+    OtaManager* _ota = nullptr;
 
     String _apiKey;
     String _baseUrl;

@@ -104,6 +104,7 @@ private:
 
     void _applyDefaults();
     void _migrateIfNeeded();
+    bool _validateConfig();
 
     static const char* PRAYER_KEYS[5];
 };
