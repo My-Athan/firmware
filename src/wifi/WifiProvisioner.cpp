@@ -1,11 +1,21 @@
 #include "WifiProvisioner.h"
 #include "../config/defaults.h"
 #include <WiFiManager.h>
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEUtils.h>
-#include <BLE2902.h>
 #include <esp_mac.h>
+
+// BLE support — ESP32-C3 uses NimBLE stack
+#if defined(CONFIG_BT_ENABLED) && defined(CONFIG_BT_NIMBLE_ENABLED)
+  #define BLE_SUPPORTED 1
+  #include <NimBLEDevice.h>
+#elif defined(CONFIG_BT_ENABLED)
+  #define BLE_SUPPORTED 1
+  #include <BLEDevice.h>
+  #include <BLEServer.h>
+  #include <BLEUtils.h>
+  #include <BLE2902.h>
+#else
+  #define BLE_SUPPORTED 0
+#endif
 
 // BLE UUIDs for WiFi provisioning service
 #define WIFI_SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
@@ -18,6 +28,7 @@ static String _bleSsid = "";
 static String _blePassword = "";
 static bool _bleCredentialsReceived = false;
 
+#if BLE_SUPPORTED
 // BLE Callbacks
 class WifiProvCallbacks : public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic* pChar) override {
@@ -34,6 +45,7 @@ class WifiProvCallbacks : public BLECharacteristicCallbacks {
         }
     }
 };
+#endif
 
 void WifiProvisioner::_generateAPName() {
     uint8_t mac[6];
@@ -66,12 +78,12 @@ bool WifiProvisioner::begin(const char* ssid, const char* password) {
         Serial.println("[WiFi] Connection failed, starting provisioning");
     }
 
-    // No credentials or connection failed — start provisioning
     startProvisioning();
     return false;
 }
 
 void WifiProvisioner::update() {
+#if BLE_SUPPORTED
     // Check if BLE credentials arrived
     if (_bleActive && _bleCredentialsReceived) {
         _bleCredentialsReceived = false;
@@ -101,13 +113,14 @@ void WifiProvisioner::update() {
         return;
     }
 
-    // BLE timeout → fall back to captive portal
+    // BLE timeout -> fall back to captive portal
     if (_bleActive && millis() - _bleStartTime >= BLE_ADVERTISING_TIMEOUT_MS) {
         Serial.println("[WiFi] BLE timeout, switching to captive portal");
         _stopBLE();
         _startCaptivePortal();
         return;
     }
+#endif
 
     // Check connection status
     if (_state == WifiState::CONNECTED && WiFi.status() != WL_CONNECTED) {
@@ -117,7 +130,12 @@ void WifiProvisioner::update() {
 }
 
 void WifiProvisioner::startProvisioning() {
+#if BLE_SUPPORTED
     _startBLE();
+#else
+    Serial.println("[WiFi] BLE not available, using captive portal");
+    _startCaptivePortal();
+#endif
 }
 
 void WifiProvisioner::resetCredentials() {
@@ -132,6 +150,7 @@ const char* WifiProvisioner::getIP() const {
     return _ipBuf;
 }
 
+#if BLE_SUPPORTED
 void WifiProvisioner::_startBLE() {
     _state = WifiState::BLE_PROVISIONING;
     _bleActive = true;
@@ -172,13 +191,19 @@ void WifiProvisioner::_stopBLE() {
     _bleActive = false;
     Serial.println("[BLE] Stopped");
 }
+#else
+void WifiProvisioner::_startBLE() {
+    _startCaptivePortal();
+}
+void WifiProvisioner::_stopBLE() {}
+#endif
 
 void WifiProvisioner::_startCaptivePortal() {
     _state = WifiState::CAPTIVE_PORTAL;
     _portalActive = true;
 
     WiFiManager wm;
-    wm.setConfigPortalTimeout(180);  // 3 minute timeout
+    wm.setConfigPortalTimeout(180);
     wm.setAPStaticIPConfig(IPAddress(192,168,4,1), IPAddress(192,168,4,1), IPAddress(255,255,255,0));
 
     Serial.printf("[WiFi] Starting captive portal: %s\n", _apName);

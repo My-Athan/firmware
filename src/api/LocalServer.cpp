@@ -1,5 +1,5 @@
 #include "LocalServer.h"
-#include "../../include/version.h"
+#include <myathan_version.h>
 #include "../config/ConfigManager.h"
 #include "../audio/AudioManager.h"
 #include "../prayer/PrayerScheduler.h"
@@ -8,8 +8,6 @@
 #include "../config/defaults.h"
 #include <ESPmDNS.h>
 #include <ArduinoJson.h>
-#include <AsyncJson.h>
-
 // Simple rate limiter: track last request time per endpoint category
 static unsigned long _lastTriggerMs = 0;
 static unsigned long _lastConfigMs = 0;
@@ -84,30 +82,46 @@ void LocalServer::_setupRoutes() {
     });
 
     // POST /config (with body)
-    AsyncCallbackJsonWebHandler* configHandler = new AsyncCallbackJsonWebHandler(
-        "/config", [this](AsyncWebServerRequest* req, JsonVariant& json) {
-            JsonObject obj = json.as<JsonObject>();
+    _server.on("/config", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},  // Headers received
+        nullptr,  // Upload handler
+        [this](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t index, size_t total) {
+            if (_rateLimited(_lastConfigMs)) {
+                req->send(429, "application/json", "{\"error\":\"rate limited\"}");
+                return;
+            }
+            JsonDocument doc;
+            DeserializationError err = deserializeJson(doc, data, len);
+            if (err) {
+                req->send(400, "application/json", "{\"error\":\"invalid json\"}");
+                return;
+            }
+            JsonObject obj = doc.as<JsonObject>();
             if (_config->mergeConfig(obj)) {
                 req->send(200, "application/json", "{\"ok\":true}");
             } else {
                 req->send(500, "application/json", "{\"error\":\"save failed\"}");
             }
         });
-    _server.addHandler(configHandler);
 
     // POST /sync-trigger (with body)
-    AsyncCallbackJsonWebHandler* syncHandler = new AsyncCallbackJsonWebHandler(
-        "/sync-trigger", [this](AsyncWebServerRequest* req, JsonVariant& json) {
-            int prayer = json["prayer"] | -1;
-            unsigned long triggerAt = json["triggerAtEpoch"] | 0UL;
+    _server.on("/sync-trigger", HTTP_POST,
+        [](AsyncWebServerRequest* req) {},
+        nullptr,
+        [this](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t index, size_t total) {
+            JsonDocument doc;
+            if (deserializeJson(doc, data, len)) {
+                req->send(400, "application/json", "{\"error\":\"invalid json\"}");
+                return;
+            }
+            int prayer = doc["prayer"] | -1;
+            unsigned long triggerAt = doc["triggerAtEpoch"] | 0UL;
             if (prayer >= 0 && prayer < PRAYER_COUNT) {
-                // Store for MultiRoomSync to pick up
                 req->send(200, "application/json", "{\"ok\":true}");
             } else {
                 req->send(400, "application/json", "{\"error\":\"invalid prayer\"}");
             }
         });
-    _server.addHandler(syncHandler);
 
     // 404
     _server.onNotFound([](AsyncWebServerRequest* req) {

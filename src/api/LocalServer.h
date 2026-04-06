@@ -31,6 +31,4 @@ private:
     void _handlePreview(AsyncWebServerRequest* req);
     void _handleVolume(AsyncWebServerRequest* req);
     void _handleGetConfig(AsyncWebServerRequest* req);
-    void _handlePostConfig(AsyncWebServerRequest* req, uint8_t* data, size_t len);
-    void _handleSyncTrigger(AsyncWebServerRequest* req, uint8_t* data, size_t len);
 };
