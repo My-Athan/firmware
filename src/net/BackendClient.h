@@ -7,10 +7,14 @@ class ConfigManager;
 class NtpSync;
 class MultiRoomSync;
 class OtaManager;
+class PrayerScheduler;
+class WifiProvisioner;
 
 class BackendClient {
 public:
-    void begin(ConfigManager* config, NtpSync* ntp, MultiRoomSync* sync, OtaManager* ota = nullptr);
+    void begin(ConfigManager* config, NtpSync* ntp, MultiRoomSync* sync,
+               OtaManager* ota = nullptr, PrayerScheduler* scheduler = nullptr,
+               WifiProvisioner* wifi = nullptr);
     void update();   // Call from loop() — handles polling intervals
 
     // Manual triggers
@@ -29,6 +33,9 @@ private:
     NtpSync* _ntp = nullptr;
     MultiRoomSync* _sync = nullptr;
     OtaManager* _ota = nullptr;
+    PrayerScheduler* _scheduler = nullptr;
+    WifiProvisioner* _wifi = nullptr;
+    int _errorCount = 0;
 
     String _apiKey;
     String _baseUrl;

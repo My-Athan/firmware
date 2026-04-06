@@ -36,6 +36,7 @@ public:
     const PrayerTimes& getTodayTimes() const { return _todayTimes; }
     const PrayerTimes& getTomorrowTimes() const { return _tomorrowTimes; }
     const HolidayHandler& getHolidayHandler() const { return _holiday; }
+    int getPlayedTodayMask() const { return _playedTodayMask; }
 
     // Format prayer time as HH:MM string
     static void formatTime(int minutesSinceMidnight, char* buf, size_t len);

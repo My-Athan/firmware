@@ -5,14 +5,19 @@
 #include "../time/NtpSync.h"
 #include "../sync/MultiRoomSync.h"
 #include "../ota/OtaManager.h"
+#include "../prayer/PrayerScheduler.h"
+#include "../wifi/WifiProvisioner.h"
 #include <HTTPClient.h>
 #include <WiFi.h>
 
-void BackendClient::begin(ConfigManager* config, NtpSync* ntp, MultiRoomSync* sync, OtaManager* ota) {
+void BackendClient::begin(ConfigManager* config, NtpSync* ntp, MultiRoomSync* sync,
+                          OtaManager* ota, PrayerScheduler* scheduler, WifiProvisioner* wifi) {
     _config = config;
     _ntp = ntp;
     _sync = sync;
     _ota = ota;
+    _scheduler = scheduler;
+    _wifi = wifi;
 
     _baseUrl = "https://api.myathan.com";  // TODO: make configurable
     Serial.println("[Backend] Client initialized");
@@ -89,17 +94,58 @@ bool BackendClient::sendHeartbeat() {
     body["freeHeap"] = ESP.getFreeHeap();
     body["wifiRssi"] = WiFi.RSSI();
     body["uptime"] = millis() / 1000;
+    body["errors"] = _errorCount;
+
+    // Location
+    body["lat"] = _config->getLatitude();
+    body["lon"] = _config->getLongitude();
+
+    // Prayer plays from scheduler bitmask
+    if (_scheduler) {
+        JsonObject plays = body["prayerPlays"].to<JsonObject>();
+        int mask = _scheduler->getPlayedTodayMask();
+        const char* names[] = {"fajr", "dhuhr", "asr", "maghrib", "isha"};
+        for (int i = 0; i < 5; i++) {
+            plays[names[i]] = (mask & (1 << i)) ? 1 : 0;
+        }
+    }
 
     JsonDocument response;
     if (!_httpPost("/api/device/heartbeat", body, response)) {
+        _errorCount++;
         return false;
     }
+    _errorCount = 0;
 
     // Check for sync triggers
     if (response.containsKey("syncTrigger") && _sync) {
         int prayer = response["syncTrigger"]["prayer"];
         unsigned long epoch = response["syncTrigger"]["triggerAtEpoch"];
         _sync->setSyncTrigger(prayer, epoch);
+    }
+
+    // Check for pending commands
+    if (response.containsKey("command")) {
+        const char* cmd = response["command"]["command"];
+        Serial.printf("[Backend] Command received: %s\n", cmd);
+
+        if (strcmp(cmd, "restart") == 0) {
+            Serial.println("[Backend] Restarting in 3s...");
+            delay(3000);
+            ESP.restart();
+        } else if (strcmp(cmd, "wifi_reset") == 0 && _wifi) {
+            Serial.println("[Backend] Resetting WiFi credentials");
+            _wifi->resetCredentials();
+        } else if (strcmp(cmd, "ota_update") == 0 && _ota) {
+            OtaUpdateInfo info = {};
+            strlcpy(info.version, response["command"]["payload"]["version"] | "", sizeof(info.version));
+            strlcpy(info.url, response["command"]["payload"]["url"] | "", sizeof(info.url));
+            info.size = response["command"]["payload"]["size"] | 0;
+            strlcpy(info.sha256, response["command"]["payload"]["sha256"] | "", sizeof(info.sha256));
+            if (strlen(info.url) > 0) {
+                _ota->applyUpdate(info);
+            }
+        }
     }
 
     Serial.println("[Backend] Heartbeat sent");

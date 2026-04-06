@@ -91,7 +91,7 @@ void setup() {
     // 7. OTA manager + backend client + offline cache
     ota.begin(&configManager, &ntp, &led);
     cache.begin();
-    backend.begin(&configManager, &ntp, &multiRoom, &ota);
+    backend.begin(&configManager, &ntp, &multiRoom, &ota, &scheduler, &wifi);
 
     // 8. WiFi — last in setup, may block for provisioning
     wifi.onConnected(onWifiConnected);
