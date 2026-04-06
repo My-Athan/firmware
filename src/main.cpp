@@ -12,6 +12,8 @@
 #include "prayer/IqamaTimer.h"
 #include "api/LocalServer.h"
 #include "sync/MultiRoomSync.h"
+#include "net/BackendClient.h"
+#include "net/OfflineCache.h"
 
 // ── Global instances ────────────────────────────────────────
 ConfigManager   configManager;
@@ -24,6 +26,8 @@ PrayerScheduler scheduler;
 IqamaTimer      iqama;
 LocalServer     server;
 MultiRoomSync   multiRoom;
+BackendClient   backend;
+OfflineCache    cache;
 
 // ── Callbacks ───────────────────────────────────────────────
 void onWifiConnected() {
@@ -82,7 +86,11 @@ void setup() {
     // 6. Multi-room sync
     multiRoom.begin(&configManager, &audio, &ntp, &scheduler);
 
-    // 7. WiFi — last in setup, may block for provisioning
+    // 7. Backend client + offline cache
+    cache.begin();
+    backend.begin(&configManager, &ntp, &multiRoom);
+
+    // 8. WiFi — last in setup, may block for provisioning
     wifi.onConnected(onWifiConnected);
     wifi.onCredentials(onWifiCredentials);
 
@@ -118,6 +126,9 @@ void loop() {
 
     // Multi-room sync check
     multiRoom.update();
+
+    // Backend polling (config sync, heartbeat, OTA check)
+    backend.update();
 
     // Audio state (preview timeout, playback detection)
     audio.update();
