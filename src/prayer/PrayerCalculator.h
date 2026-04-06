@@ -85,6 +85,10 @@ private:
     // High-latitude adjustments
     void _adjustHighLatitude(PrayerTimes& times, double lat) const;
 
+    // Validation
+    void _validateOrder(PrayerTimes& times);
+    static int _clampMinutes(int m) { return (m < 0) ? 0 : (m > 1440) ? 1440 : m; }
+
     // Helpers
     static int _toMinutes(double hours);
     static double _fixHour(double h);
