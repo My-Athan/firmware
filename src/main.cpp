@@ -14,6 +14,7 @@
 #include "sync/MultiRoomSync.h"
 #include "net/BackendClient.h"
 #include "net/OfflineCache.h"
+#include "ota/OtaManager.h"
 
 // ── Global instances ────────────────────────────────────────
 ConfigManager   configManager;
@@ -28,6 +29,7 @@ LocalServer     server;
 MultiRoomSync   multiRoom;
 BackendClient   backend;
 OfflineCache    cache;
+OtaManager      ota;
 
 // ── Callbacks ───────────────────────────────────────────────
 void onWifiConnected() {
@@ -86,7 +88,8 @@ void setup() {
     // 6. Multi-room sync
     multiRoom.begin(&configManager, &audio, &ntp, &scheduler);
 
-    // 7. Backend client + offline cache
+    // 7. OTA manager + backend client + offline cache
+    ota.begin(&configManager, &ntp, &led);
     cache.begin();
     backend.begin(&configManager, &ntp, &multiRoom);
 
