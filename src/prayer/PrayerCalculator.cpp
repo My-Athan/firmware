@@ -97,8 +97,12 @@ double PrayerCalculator::_computeMidDay(double eqt) const {
 }
 
 double PrayerCalculator::_computeAsr(double decl, double lat) const {
+    // Returns the solar altitude angle for ASR time
+    // Standard: shadow length = object height (factor=1)
+    // Hanafi: shadow length = 2x object height (factor=2)
     double factor = (_asrJuristic == AsrJuristic::HANAFI) ? 2.0 : 1.0;
     double angle = RAD2DEG * atan(1.0 / (factor + tan(fabs(lat - decl) * DEG2RAD)));
+    // Return as negative angle for _computeAngleTime (afternoon = positive hour angle)
     return angle;
 }
 
@@ -157,17 +161,20 @@ PrayerTimes PrayerCalculator::calculate(int year, int month, int day, double lat
         isha = dhuhr + ishaAngle;
     }
 
-    // Build result in hours
+    // Build result in hours, clamp to valid range
     PrayerTimes times;
-    times.fajr    = _toMinutes(fajr);
-    times.sunrise = _toMinutes(sunrise);
-    times.dhuhr   = _toMinutes(dhuhr);
-    times.asr     = _toMinutes(asr);
-    times.maghrib = _toMinutes(maghrib);
-    times.isha    = _toMinutes(isha);
+    times.fajr    = _clampMinutes(_toMinutes(fajr));
+    times.sunrise = _clampMinutes(_toMinutes(sunrise));
+    times.dhuhr   = _clampMinutes(_toMinutes(dhuhr));
+    times.asr     = _clampMinutes(_toMinutes(asr));
+    times.maghrib = _clampMinutes(_toMinutes(maghrib));
+    times.isha    = _clampMinutes(_toMinutes(isha));
 
     // Apply high-latitude adjustments
     _adjustHighLatitude(times, lat);
+
+    // Final validation: times must be in order
+    _validateOrder(times);
 
     return times;
 }
@@ -180,7 +187,8 @@ void PrayerCalculator::_adjustHighLatitude(PrayerTimes& times, double lat) const
     if (_highLat == HighLatMethod::NONE) return;
     if (fabs(lat) < 48.0) return;  // Only apply above 48° N/S
 
-    int nightDuration = times.sunrise + (24 * 60 - times.maghrib);  // Night in minutes
+    // Night duration = time from maghrib to next sunrise
+    int nightDuration = (24 * 60 - times.maghrib) + times.sunrise;
     MethodParams params = _getParams();
 
     int fajrAdj = 0, ishaAdj = 0;
@@ -201,7 +209,6 @@ void PrayerCalculator::_adjustHighLatitude(PrayerTimes& times, double lat) const
         }
 
         case HighLatMethod::ANGLE_BASED: {
-            // Proportion of night based on angle
             double fajrRatio = params.fajrAngle / 60.0;
             double ishaRatio = (params.ishaMins > 0) ? (params.ishaMins / 60.0 / 24.0) : (params.ishaAngle / 60.0);
 
@@ -214,13 +221,30 @@ void PrayerCalculator::_adjustHighLatitude(PrayerTimes& times, double lat) const
             return;
     }
 
-    // Only adjust if calculated time is invalid (past sunrise for Fajr, or NaN-like)
+    // Only adjust if calculated time is invalid
     if (times.fajr < 0 || times.fajr > times.sunrise) {
-        times.fajr = fajrAdj;
+        times.fajr = _clampMinutes(fajrAdj);
     }
     if (times.isha < times.maghrib || times.isha > 24 * 60) {
-        times.isha = ishaAdj;
+        times.isha = _clampMinutes(ishaAdj);
     }
+}
+
+void PrayerCalculator::_validateOrder(PrayerTimes& times) {
+    // Ensure times are in correct order; fix if not
+    if (times.sunrise <= times.fajr) times.fajr = times.sunrise - 60;
+    if (times.dhuhr <= times.sunrise) times.dhuhr = times.sunrise + 1;
+    if (times.asr <= times.dhuhr) times.asr = times.dhuhr + 1;
+    if (times.maghrib <= times.asr) times.maghrib = times.asr + 1;
+    if (times.isha <= times.maghrib) times.isha = times.maghrib + 60;
+
+    // Final clamp
+    times.fajr = _clampMinutes(times.fajr);
+    times.sunrise = _clampMinutes(times.sunrise);
+    times.dhuhr = _clampMinutes(times.dhuhr);
+    times.asr = _clampMinutes(times.asr);
+    times.maghrib = _clampMinutes(times.maghrib);
+    times.isha = _clampMinutes(times.isha);
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -8,6 +8,18 @@
 #include <ESPmDNS.h>
 #include <ArduinoJson.h>
 
+// Simple rate limiter: track last request time per endpoint category
+static unsigned long _lastTriggerMs = 0;
+static unsigned long _lastConfigMs = 0;
+static const unsigned long RATE_LIMIT_MS = 1000;  // 1 request/second
+
+static bool _rateLimited(unsigned long& lastMs) {
+    unsigned long now = millis();
+    if (now - lastMs < RATE_LIMIT_MS) return true;
+    lastMs = now;
+    return false;
+}
+
 void LocalServer::begin(ConfigManager* config, AudioManager* audio,
                         PrayerScheduler* scheduler, NtpSync* ntp) {
     _config = config;
@@ -181,22 +193,36 @@ void LocalServer::_handleTimetable(AsyncWebServerRequest* req) {
 }
 
 void LocalServer::_handleTrigger(AsyncWebServerRequest* req) {
+    if (_rateLimited(_lastTriggerMs)) {
+        req->send(429, "application/json", "{\"error\":\"rate limited\"}");
+        return;
+    }
+
     int prayer = 0;
     if (req->hasParam("prayer")) {
-        prayer = req->getParam("prayer")->value().toInt();
+        String val = req->getParam("prayer")->value();
+        // Validate: must be single digit 0-4
+        if (val.length() == 1 && val[0] >= '0' && val[0] <= '4') {
+            prayer = val[0] - '0';
+        }
     }
-    if (prayer < 0 || prayer >= PRAYER_COUNT) prayer = 0;
 
     if (_scheduler) _scheduler->triggerAthan(prayer);
     req->send(200, "application/json", "{\"ok\":true,\"prayer\":" + String(prayer) + "}");
 }
 
 void LocalServer::_handlePreview(AsyncWebServerRequest* req) {
+    if (_rateLimited(_lastTriggerMs)) {
+        req->send(429, "application/json", "{\"error\":\"rate limited\"}");
+        return;
+    }
+
     int track = 1;
     if (req->hasParam("track")) {
-        track = req->getParam("track")->value().toInt();
+        String val = req->getParam("track")->value();
+        int parsed = val.toInt();
+        if (parsed > 0 && parsed <= 999) track = parsed;
     }
-    if (track <= 0) track = 1;
 
     if (_scheduler) _scheduler->triggerPreview(track);
     req->send(200, "application/json", "{\"ok\":true,\"track\":" + String(track) + "}");

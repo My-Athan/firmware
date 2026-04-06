@@ -33,6 +33,15 @@ bool ConfigManager::load() {
         return false;
     }
 
+    // Validate file size to prevent OOM
+    size_t fileSize = file.size();
+    if (fileSize > CONFIG_MAX_SIZE) {
+        Serial.printf("[Config] File too large: %u > %d\n", fileSize, CONFIG_MAX_SIZE);
+        file.close();
+        _applyDefaults();
+        return save();
+    }
+
     DeserializationError error = deserializeJson(_doc, file);
     file.close();
 
@@ -353,7 +362,24 @@ void ConfigManager::setHijriAdjustment(int adj) {
 // ─────────────────────────────────────────────────────────────
 
 bool ConfigManager::mergeConfig(JsonObject incoming) {
+    // Whitelist: only allow these top-level keys to be merged
+    static const char* ALLOWED_KEYS[] = {
+        "audio", "schedule", "ramadan", "hijri", "holidays",
+        "led", "multiRoom", "location", "timetable", nullptr
+    };
+
     for (JsonPair kv : incoming) {
+        bool allowed = false;
+        for (int i = 0; ALLOWED_KEYS[i]; i++) {
+            if (strcmp(kv.key().c_str(), ALLOWED_KEYS[i]) == 0) {
+                allowed = true;
+                break;
+            }
+        }
+        if (!allowed) {
+            Serial.printf("[Config] Rejected merge key: %s\n", kv.key().c_str());
+            continue;
+        }
         _doc[kv.key()] = kv.value();
     }
     return save();

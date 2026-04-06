@@ -14,7 +14,9 @@ void NtpSync::update() {
     }
 
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo, 5000)) {
+    // Use short timeout in loop to avoid blocking (100ms vs 5000ms)
+    int timeout = _synced ? 100 : 5000;
+    if (getLocalTime(&timeinfo, timeout)) {
         if (!_synced) {
             char buf[64];
             strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &timeinfo);
