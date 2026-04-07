@@ -20,18 +20,6 @@ static bool _rateLimited(unsigned long& lastMs) {
     return false;
 }
 
-// Simple rate limiter: track last request time per endpoint category
-static unsigned long _lastTriggerMs = 0;
-static unsigned long _lastConfigMs = 0;
-static const unsigned long RATE_LIMIT_MS = 1000;  // 1 request/second
-
-static bool _rateLimited(unsigned long& lastMs) {
-    unsigned long now = millis();
-    if (now - lastMs < RATE_LIMIT_MS) return true;
-    lastMs = now;
-    return false;
-}
-
 void LocalServer::begin(ConfigManager* config, AudioManager* audio,
                         PrayerScheduler* scheduler, NtpSync* ntp) {
     _config = config;

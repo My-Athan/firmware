@@ -140,14 +140,17 @@ bool BackendClient::sendHeartbeat() {
 
     // Check for sync triggers
     if (response.containsKey("syncTrigger") && _sync) {
-        int prayer = response["syncTrigger"]["prayer"];
-        unsigned long epoch = response["syncTrigger"]["triggerAtEpoch"];
-        _sync->setSyncTrigger(prayer, epoch);
+        int prayer = response["syncTrigger"]["prayer"] | -1;
+        unsigned long epoch = response["syncTrigger"]["triggerAtEpoch"] | 0UL;
+        if (prayer >= 0 && epoch > 0) {
+            _sync->setSyncTrigger(prayer, epoch);
+        }
     }
 
     // Check for pending commands
     if (response.containsKey("command")) {
-        const char* cmd = response["command"]["command"];
+        const char* cmd = response["command"]["command"] | "";
+        if (strlen(cmd) == 0) return true;
         Serial.printf("[Backend] Command received: %s\n", cmd);
 
         if (strcmp(cmd, "restart") == 0) {
@@ -235,7 +238,7 @@ bool BackendClient::_httpGet(const char* path, JsonDocument& response) {
     }
 
     int code = http.GET();
-    if (code != 200) {
+    if (code < 200 || code >= 300) {
         snprintf(_lastError, sizeof(_lastError), "GET %s → %d", path, code);
         Serial.printf("[Backend] %s\n", _lastError);
         http.end();

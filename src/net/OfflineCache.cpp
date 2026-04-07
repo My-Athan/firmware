@@ -97,5 +97,16 @@ int OfflineCache::cachedDayCount() {
 }
 
 String OfflineCache::_pathForDate(const char* dateKey) {
+    // Validate dateKey format: must be YYYY-MM-DD (10 chars)
+    if (!dateKey || strlen(dateKey) != 10) {
+        return String(CACHE_PATH) + "/invalid.json";
+    }
+    for (int i = 0; i < 10; i++) {
+        if (i == 4 || i == 7) {
+            if (dateKey[i] != '-') return String(CACHE_PATH) + "/invalid.json";
+        } else {
+            if (dateKey[i] < '0' || dateKey[i] > '9') return String(CACHE_PATH) + "/invalid.json";
+        }
+    }
     return String(CACHE_PATH) + "/" + dateKey + ".json";
 }
