@@ -8,7 +8,8 @@
 #include <Update.h>
 #include <esp_ota_ops.h>
 #include <Preferences.h>
-#include <mbedtls/sha256.h>
+#include <esp_system.h>
+#include <mbedtls/md.h>
 
 int OtaManager::_consecutiveFailures = 0;
 
@@ -105,9 +106,13 @@ bool OtaManager::_download(const char* url, int expectedSize, const char* expect
     }
 
     // Initialize SHA256 context for verification
-    mbedtls_sha256_context sha_ctx;
-    mbedtls_sha256_init(&sha_ctx);
-    mbedtls_sha256_starts(&sha_ctx, 0);  // 0 = SHA-256
+    bool doVerify = (expectedSha256 && strlen(expectedSha256) == 64);
+    mbedtls_md_context_t md_ctx;
+    mbedtls_md_init(&md_ctx);
+    if (doVerify) {
+        mbedtls_md_setup(&md_ctx, mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), 0);
+        mbedtls_md_starts(&md_ctx);
+    }
 
     // Stream download directly to flash
     WiFiClient* stream = http.getStreamPtr();
@@ -126,12 +131,14 @@ bool OtaManager::_download(const char* url, int expectedSize, const char* expect
         if (readBytes <= 0) break;
 
         // Update SHA256 hash with downloaded data
-        mbedtls_sha256_update(&sha_ctx, buf, readBytes);
+        if (doVerify) {
+            mbedtls_md_update(&md_ctx, buf, readBytes);
+        }
 
         int wroteNow = Update.write(buf, readBytes);
         if (wroteNow != readBytes) {
             snprintf(_error, sizeof(_error), "Write error at %d bytes", written);
-            mbedtls_sha256_free(&sha_ctx);
+            if (doVerify) mbedtls_md_free(&md_ctx);
             Update.abort();
             http.end();
             return false;
@@ -150,16 +157,15 @@ bool OtaManager::_download(const char* url, int expectedSize, const char* expect
 
     // Verify SHA256 hash before finalizing
     _state = OtaState::VERIFYING;
-    if (expectedSha256 && strlen(expectedSha256) == 64) {
+    if (doVerify) {
         uint8_t sha_result[32];
-        mbedtls_sha256_finish(&sha_ctx, sha_result);
-        mbedtls_sha256_free(&sha_ctx);
+        mbedtls_md_finish(&md_ctx, sha_result);
+        mbedtls_md_free(&md_ctx);
 
         char computed[65];
         for (int i = 0; i < 32; i++) {
-            sprintf(computed + i * 2, "%02x", sha_result[i]);
+            snprintf(computed + i * 2, 3, "%02x", sha_result[i]);
         }
-        computed[64] = '\0';
 
         if (strcmp(computed, expectedSha256) != 0) {
             snprintf(_error, sizeof(_error), "SHA256 mismatch");
@@ -169,7 +175,6 @@ bool OtaManager::_download(const char* url, int expectedSize, const char* expect
         }
         Serial.println("[OTA] SHA256 verified OK");
     } else {
-        mbedtls_sha256_free(&sha_ctx);
         Serial.println("[OTA] No SHA256 provided, skipping verification");
     }
 
