@@ -126,7 +126,10 @@ void PrayerScheduler::_recalculate() {
     // Simple: just add 1 day (good enough for suhoor lookahead)
     struct tm t = _ntp->localTime();
     t.tm_mday += 1;
-    mktime(&t);  // Normalize
+    if (mktime(&t) == (time_t)-1) {
+        Serial.println("[Scheduler] mktime failed for tomorrow calculation");
+        return;
+    }
     _tomorrowTimes = _calculator.calculate(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, lat, lon);
 
     char buf[6];

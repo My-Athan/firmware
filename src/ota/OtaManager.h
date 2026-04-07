@@ -48,8 +48,7 @@ private:
     char _error[128] = "";
     bool _justUpdated = false;
 
-    bool _download(const char* url, int expectedSize);
-    bool _verifySha256(const char* expected);
+    bool _download(const char* url, int expectedSize, const char* expectedSha256 = nullptr);
     void _markBootSuccessful();
 
     static int _consecutiveFailures;
