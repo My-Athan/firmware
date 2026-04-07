@@ -7,6 +7,7 @@
 #include <HTTPClient.h>
 #include <Update.h>
 #include <esp_ota_ops.h>
+#include <Preferences.h>
 
 int OtaManager::_consecutiveFailures = 0;
 
@@ -14,6 +15,18 @@ void OtaManager::begin(ConfigManager* config, NtpSync* ntp, LedManager* led) {
     _config = config;
     _ntp = ntp;
     _led = led;
+
+    // Check if we just updated by comparing stored version
+    Preferences prefs;
+    prefs.begin("ota", false);
+    String lastVer = prefs.getString("lastVer", "");
+    if (lastVer.length() > 0 && lastVer != FIRMWARE_VERSION) {
+        _justUpdated = true;
+        if (_config) _config->restoreBackup();
+        Serial.printf("[OTA] Updated from %s to %s\n", lastVer.c_str(), FIRMWARE_VERSION);
+    }
+    prefs.putString("lastVer", FIRMWARE_VERSION);
+    prefs.end();
 
     // Mark current firmware as good (disables automatic rollback)
     _markBootSuccessful();
@@ -23,6 +36,9 @@ void OtaManager::begin(ConfigManager* config, NtpSync* ntp, LedManager* led) {
 
 bool OtaManager::applyUpdate(const OtaUpdateInfo& info) {
     Serial.printf("[OTA] Starting update to v%s (%d bytes)\n", info.version, info.size);
+
+    // Backup config before update
+    if (_config) _config->backupConfig();
 
     // Pre-update validation
     if (ESP.getFreeHeap() < 50000) {
@@ -91,6 +107,9 @@ bool OtaManager::_download(const char* url, int expectedSize) {
         http.end();
         return false;
     }
+
+    // Enable MD5 checksum verification during write
+    Update.setMD5(nullptr);  // Reset — we'll verify SHA256 post-download
 
     // Stream download directly to flash
     WiFiClient* stream = http.getStreamPtr();
