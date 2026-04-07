@@ -2,6 +2,7 @@
 #include "defaults.h"
 #include <myathan_version.h>
 #include <esp_mac.h>
+#include <Preferences.h>
 
 const char* ConfigManager::PRAYER_KEYS[5] = {"fajr", "dhuhr", "asr", "maghrib", "isha"};
 
@@ -297,6 +298,51 @@ int ConfigManager::getPlayedTodayMask() {
 int ConfigManager::getPrayerOffset(int idx) {
     if (idx < 0 || idx >= PRAYER_COUNT) return 0;
     return _doc["timetable"]["offsets"][PRAYER_KEYS[idx]] | 0;
+}
+
+// ─────────────────────────────────────────────────────────────
+// OTA preferences
+// ─────────────────────────────────────────────────────────────
+
+bool ConfigManager::getOtaAutoUpdateEnabled() const {
+    return _doc["ota"]["autoUpdateEnabled"] | true;
+}
+
+int ConfigManager::getOtaCheckHour() const {
+    return _doc["ota"]["checkHour"] | 3;
+}
+
+String ConfigManager::getOtaCheckFrequency() const {
+    const char* freq = _doc["ota"]["checkFrequency"] | "daily";
+    return String(freq);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Config backup / restore
+// ─────────────────────────────────────────────────────────────
+
+void ConfigManager::backupConfig() const {
+    Preferences prefs;
+    prefs.begin("ota", false);
+    String configStr;
+    serializeJson(_doc, configStr);
+    prefs.putString("backup", configStr);
+    prefs.end();
+    Serial.println("[Config] Config backed up to NVS");
+}
+
+void ConfigManager::restoreBackup() {
+    Preferences prefs;
+    prefs.begin("ota", true);
+    String backup = prefs.getString("backup", "");
+    prefs.end();
+    if (backup.length() > 0) {
+        DeserializationError err = deserializeJson(_doc, backup);
+        if (!err) {
+            save();
+            Serial.println("[Config] Config restored from backup");
+        }
+    }
 }
 
 // ─────────────────────────────────────────────────────────────

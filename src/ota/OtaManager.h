@@ -36,6 +36,7 @@ public:
     OtaState getState() const { return _state; }
     int getProgress() const { return _progress; }
     const char* getError() const { return _error; }
+    bool justUpdated() const { return _justUpdated; }
 
 private:
     ConfigManager* _config = nullptr;
@@ -45,6 +46,7 @@ private:
     OtaState _state = OtaState::IDLE;
     int _progress = 0;  // 0-100
     char _error[128] = "";
+    bool _justUpdated = false;
 
     bool _download(const char* url, int expectedSize);
     bool _verifySha256(const char* expected);

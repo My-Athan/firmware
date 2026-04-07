@@ -2,6 +2,7 @@
 
 #include <ArduinoJson.h>
 #include <LittleFS.h>
+#include <Preferences.h>
 
 #define CONFIG_PATH "/config.json"
 #define CONFIG_MAX_SIZE 8192
@@ -67,6 +68,15 @@ public:
     // ── Multi-room ──────────────────────────────────────────
     const char* getMultiRoomGroupId();
     int getMultiRoomSyncOffset();
+
+    // ── OTA preferences ─────────────────────────────────────
+    bool getOtaAutoUpdateEnabled() const;
+    int getOtaCheckHour() const;
+    String getOtaCheckFrequency() const;
+
+    // ── Config backup/restore ────────────────────────────────
+    void backupConfig() const;
+    void restoreBackup();
 
     // ── Recovery ────────────────────────────────────────────
     const char* getLastState();
