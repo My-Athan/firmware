@@ -34,6 +34,20 @@ Review current changes against MyAthan firmware standards.
 - [ ] Non-blocking playback detection (no while loops waiting for DFPlayer)
 - [ ] Preview auto-stops after PREVIEW_DURATION_MS
 
+### OTA Update Safety
+- [ ] Config backed up to NVS before applyUpdate() starts download
+- [ ] Config restored from NVS backup on boot after version change
+- [ ] HARDWARE_TYPE defined via build_flags (not hardcoded in source)
+- [ ] OTA check respects user preferences (checkHour, checkFrequency, autoUpdateEnabled)
+- [ ] Force commands from admin override user autoUpdate preference
+- [ ] SHA256/checksum verified after download (Update library or manual)
+- [ ] OTA download timeout is reasonable (30s default)
+- [ ] Heap check before OTA (>50KB free required)
+- [ ] Binary size check before OTA (<=1.5MB)
+- [ ] Rollback: esp_ota_mark_app_valid_cancel_rollback() called on successful boot
+- [ ] justUpdated flag reported in heartbeat after OTA
+- [ ] No OTA during active prayer playback (check scheduler state)
+
 ### General
 - [ ] No `String` concatenation in tight loops (heap fragmentation)
 - [ ] Serial.printf used instead of String concatenation for logging
