@@ -46,10 +46,26 @@ void BackendClient::update() {
         _lastHeartbeat = now;
     }
 
-    // OTA check once per day at configured hour
-    if (_ntp->currentHour() == DEFAULT_OTA_CHECK_HOUR && now - _lastOtaCheck >= 3600000) {
-        checkOtaUpdate();
-        _lastOtaCheck = now;
+    // OTA check based on user preferences
+    if (_config && _ntp && _ntp->isSynced()) {
+        String otaFreq = _config->getOtaCheckFrequency();
+        if (otaFreq != "manual") {
+            int checkHour = _config->getOtaCheckHour();
+            struct tm timeinfo;
+            getLocalTime(&timeinfo);
+
+            bool shouldCheck = false;
+            if (otaFreq == "daily" && timeinfo.tm_hour == checkHour) {
+                shouldCheck = (now - _lastOtaCheck > 3600000); // max once per hour
+            } else if (otaFreq == "weekly" && timeinfo.tm_wday == 0 && timeinfo.tm_hour == checkHour) {
+                shouldCheck = (now - _lastOtaCheck > 3600000);
+            }
+
+            if (shouldCheck) {
+                checkOtaUpdate();
+                _lastOtaCheck = now;
+            }
+        }
     }
 }
 
@@ -91,10 +107,15 @@ bool BackendClient::sendHeartbeat() {
 
     JsonDocument body;
     body["firmwareVersion"] = FIRMWARE_VERSION;
+    body["hardwareType"] = HARDWARE_TYPE;
     body["freeHeap"] = ESP.getFreeHeap();
     body["wifiRssi"] = WiFi.RSSI();
     body["uptime"] = millis() / 1000;
     body["errors"] = _errorCount;
+
+    if (_ota && _ota->justUpdated()) {
+        body["justUpdated"] = true;
+    }
 
     // Location
     body["lat"] = _config->getLatitude();
@@ -171,8 +192,10 @@ bool BackendClient::fetchTimetable() {
 bool BackendClient::checkOtaUpdate() {
     if (!hasApiKey()) return false;
 
-    char path[64];
-    snprintf(path, sizeof(path), "/api/device/ota/check?currentVersion=%s", FIRMWARE_VERSION);
+    char path[128];
+    snprintf(path, sizeof(path),
+        "/api/device/ota/check?currentVersion=%s&hardwareType=%s",
+        FIRMWARE_VERSION, HARDWARE_TYPE);
 
     JsonDocument response;
     if (!_httpGet(path, response)) {

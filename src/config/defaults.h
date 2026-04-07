@@ -5,6 +5,11 @@
 // Used when no config.json exists on LittleFS (first boot)
 // ──────────────────────────────────────────────────────────────
 
+// Hardware type fallback (normally set via build_flags)
+#ifndef HARDWARE_TYPE
+#define HARDWARE_TYPE "esp32c3-v1"
+#endif
+
 // Config schema version — bump when config.json format changes
 #define CONFIG_VERSION 2
 
