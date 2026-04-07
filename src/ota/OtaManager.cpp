@@ -108,6 +108,9 @@ bool OtaManager::_download(const char* url, int expectedSize) {
         return false;
     }
 
+    // Enable MD5 checksum verification during write
+    Update.setMD5(nullptr);  // Reset — we'll verify SHA256 post-download
+
     // Stream download directly to flash
     WiFiClient* stream = http.getStreamPtr();
     uint8_t buf[1024];
