@@ -8,8 +8,7 @@
 #include <Update.h>
 #include <esp_ota_ops.h>
 #include <Preferences.h>
-#include <esp_system.h>
-#include <mbedtls/md.h>
+#include <mbedtls/sha256.h>
 
 int OtaManager::_consecutiveFailures = 0;
 
@@ -107,11 +106,10 @@ bool OtaManager::_download(const char* url, int expectedSize, const char* expect
 
     // Initialize SHA256 context for verification
     bool doVerify = (expectedSha256 && strlen(expectedSha256) == 64);
-    mbedtls_md_context_t md_ctx;
-    mbedtls_md_init(&md_ctx);
+    mbedtls_sha256_context sha_ctx;
     if (doVerify) {
-        mbedtls_md_setup(&md_ctx, mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), 0);
-        mbedtls_md_starts(&md_ctx);
+        mbedtls_sha256_init(&sha_ctx);
+        mbedtls_sha256_starts(&sha_ctx, 0);
     }
 
     // Stream download directly to flash
@@ -130,15 +128,14 @@ bool OtaManager::_download(const char* url, int expectedSize, const char* expect
         int readBytes = stream->readBytes(buf, min(available, (int)sizeof(buf)));
         if (readBytes <= 0) break;
 
-        // Update SHA256 hash with downloaded data
         if (doVerify) {
-            mbedtls_md_update(&md_ctx, buf, readBytes);
+            mbedtls_sha256_update(&sha_ctx, buf, readBytes);
         }
 
         int wroteNow = Update.write(buf, readBytes);
         if (wroteNow != readBytes) {
             snprintf(_error, sizeof(_error), "Write error at %d bytes", written);
-            if (doVerify) mbedtls_md_free(&md_ctx);
+            if (doVerify) mbedtls_sha256_free(&sha_ctx);
             Update.abort();
             http.end();
             return false;
@@ -159,8 +156,8 @@ bool OtaManager::_download(const char* url, int expectedSize, const char* expect
     _state = OtaState::VERIFYING;
     if (doVerify) {
         uint8_t sha_result[32];
-        mbedtls_md_finish(&md_ctx, sha_result);
-        mbedtls_md_free(&md_ctx);
+        mbedtls_sha256_finish(&sha_ctx, sha_result);
+        mbedtls_sha256_free(&sha_ctx);
 
         char computed[65];
         for (int i = 0; i < 32; i++) {
