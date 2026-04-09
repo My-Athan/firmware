@@ -6,6 +6,13 @@ on:
     tags: ['v*']
   pull_request:
     branches: [main]
+    paths:
+      - 'src/**'
+      - 'include/**'
+      - 'lib/**'
+      - 'test/**'
+      - 'data/**'
+      - 'platformio.ini'
 
 jobs:
   build:

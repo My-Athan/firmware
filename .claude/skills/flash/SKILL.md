@@ -2,7 +2,7 @@
 name: flash
 description: Flash firmware and filesystem to ESP32-C3 device. Use when uploading, flashing, or programming the device.
 disable-model-invocation: true
-allowed-tools: Bash Read
+allowed-tools: Bash Read Glob
 argument-hint: "[fs|monitor]"
 ---
 
