@@ -1,7 +1,7 @@
 ---
 name: prayer-verify
 description: Verify prayer time calculation accuracy for a specific city. Use to validate PrayerCalculator output against known references.
-allowed-tools: Bash Read WebSearch WebFetch
+allowed-tools: Bash Read Grep Glob WebSearch WebFetch
 argument-hint: "[city_name]"
 ---
 
