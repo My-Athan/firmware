@@ -91,6 +91,35 @@ ramadan (suhoorMode), hijri (adjustment), holidays (7 holidays), multiRoom, reco
 - 1M context adds premium on top — almost never needed for this repo
 - **Default to Sonnet 4.6 med/no-think** unless the task clearly needs more or less
 
+## Cost & Performance Optimization
+
+**Prompt caching (automatic):**
+- Claude caches repeated context (CLAUDE.md, skill definitions) at 90% discount
+- Keep CLAUDE.md stable — frequent edits invalidate the cache
+- Put rarely-changing content (tech stack, architecture) at the top, volatile content (branch names) at the bottom
+
+**Context management:**
+- Claude Code auto-compresses conversation history approaching limits — no action needed
+- For long sessions: start new sessions rather than accumulating stale context
+- Firmware source files are small (<500 lines each) — always readable in standard context
+
+**Subagent cost delegation:**
+- Use `subagent_type: "Explore"` with Haiku/Sonnet for codebase searches before invoking Opus
+- Delegate independent research tasks to parallel subagents — faster AND cheaper than serial Opus calls
+- Never use Opus for file discovery — use Grep/Glob tools directly (zero LLM cost)
+
+**Token-saving patterns:**
+- Skills with `disable-model-invocation: true` use zero reasoning tokens — keep this on pure CLI skills (/build, /flash)
+- Auto-allowed tools in settings.json skip permission prompts — saves round-trip tokens
+- Tables and lists in CLAUDE.md are 30-50% more token-efficient than prose paragraphs
+- Reference files by path instead of describing them — Claude reads the file instead of guessing
+
+**Avoid these cost traps:**
+- Don't enable thinking mode for simple edits — adds ~2-5x output tokens with no quality gain
+- Don't use 1M context — this repo has ~20 source files, well under standard limits
+- Don't re-read files already in conversation context — Claude remembers what it read
+- Don't ask Opus to run build/flash/test — Haiku executes PlatformIO commands identically at 60x less cost
+
 ## Common Development Patterns
 
 1. **Prayer time change flow**: Edit `src/prayer/PrayerCalculator.cpp` → run `/test test_prayer_calculator` → run `/prayer-verify` for affected cities
