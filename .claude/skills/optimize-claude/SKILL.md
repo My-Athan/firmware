@@ -9,18 +9,52 @@ argument-hint: "[audit|fix|report]"
 
 Audit and optimize Claude Code setup for the MyAthan firmware repo.
 
-## Model Selection Guide
+## Model Selection Engine
 
-Choose the right Claude model for each task type:
+### Available Models
+- **Opus 4.6** (`claude-opus-4-6`) — Best reasoning. ~$15/M in, $75/M out. Use for hard problems.
+- **Sonnet 4.6** (`claude-sonnet-4-6`) — Best value. ~$3/M in, $15/M out. Default choice.
+- **Haiku 4.5** (`claude-haiku-4-5-20251001`) — Fastest/cheapest. ~$0.25/M in, $1.25/M out. Use for simple tasks.
 
-| Task Type | Model | Reasoning |
-|-----------|-------|-----------|
-| Prayer calculation algorithms, high-latitude edge cases | **Opus** | Complex math and astronomical reasoning |
-| Architecture changes, cross-repo schema updates | **Opus** | Cascading effects across firmware and core |
-| Feature implementation, driver code, new modules | **Sonnet** | Standard coding with good speed/quality balance |
-| Bug fixes, config changes, single-file edits | **Sonnet** | Well-scoped changes with clear patterns |
-| Build/flash/test commands, simple config tweaks | **Haiku** | Fast CLI execution with minimal reasoning |
-| Code review with ESP32 safety checklist | **Sonnet** | Checklist-driven analysis within bounded scope |
+### Decision Matrix — Always pick the cheapest option that gets the job done
+
+| Task Type | Model | Version | Effort | Thinking | 1M Context | Cost |
+|-----------|-------|---------|--------|----------|------------|------|
+| Prayer math, high-latitude algorithms | Opus | 4.6 | max | ON | no | $$$$ |
+| Architecture, cross-repo schema cascades | Opus | 4.6 | high | ON | no | $$$ |
+| Multi-module debugging (scheduler+audio+prayer) | Opus | 4.6 | high | ON | no | $$$ |
+| Feature implementation, new driver/module | Sonnet | 4.6 | high | OFF | no | $$ |
+| Bug fixes, config changes | Sonnet | 4.6 | med | OFF | no | $$ |
+| Code review (ESP32 safety checklist) | Sonnet | 4.6 | high | OFF | no | $$ |
+| Single-file edits, header updates | Sonnet | 4.6 | med | OFF | no | $$ |
+| Build/flash/test commands | Haiku | 4.5 | low | OFF | no | $ |
+| Simple config.json tweaks | Haiku | 4.5 | low | OFF | no | $ |
+| Git operations, file lookups | Haiku | 4.5 | low | OFF | no | $ |
+
+### Configuration Rules
+
+**Version:** Always 4.6 for Opus/Sonnet (strictly better). Haiku = 4.5 (only version).
+
+**Thinking mode:**
+- **ON** when: prayer math (trig, angle-of-sun), high-latitude edge cases, multi-module debugging, config migration design, security analysis
+- **OFF** when: everything else. Embedded code follows clear patterns; thinking adds cost without benefit.
+- Rule of thumb: if you can describe the change in one sentence, thinking is OFF.
+
+**1M context:**
+- Almost **never** for this repo — firmware is ~20 source files, well under standard context.
+- Only if reading ARCHITECTURE.md (36KB) + multiple source files + tests simultaneously.
+- Never for build/flash/test, single-file edits, or standard feature work.
+
+**Effort levels:**
+- `max` — Prayer calculation only. Wrong math = wrong prayer times (high stakes).
+- `high` — Multi-file changes, code review (ESP32 safety matters), new modules.
+- `med` — Bug fixes, config changes, single-file work. **This is the default.**
+- `low` — CLI commands (build/flash/test), lookups, git operations.
+
+**Cost escalation rule:** Start at the cheapest tier. Only escalate if:
+1. The task failed or produced poor results at the current tier
+2. The task inherently requires deeper reasoning (see matrix above)
+3. Never pre-escalate "just to be safe" — that wastes budget
 
 ## Steps
 
@@ -34,7 +68,8 @@ Based on argument:
    - [ ] Key modules listed with locations
    - [ ] Development/build commands documented
    - [ ] Cross-repo references (core repo link)
-   - [ ] Model selection guidance section
+   - [ ] Model selection decision matrix (model + version + effort + thinking + 1M)
+   - [ ] Cost tier guidance with escalation rules
    - [ ] Common development patterns
    - [ ] Testing strategy documented
 2. Scan all skills in `.claude/skills/*/SKILL.md`:

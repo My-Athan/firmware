@@ -46,16 +46,50 @@ ramadan (suhoorMode), hijri (adjustment), holidays (7 holidays), multiRoom, reco
 - Build: `pio run -e esp32c3`
 - Test: `pio test -e esp32c3`
 
-## Claude Model Guidance
+## Claude Model & Configuration Rules
 
-| Task | Model | Why |
-|------|-------|-----|
-| Prayer calculation algorithms, high-latitude edge cases | **Opus** | Complex astronomical math with edge cases |
-| Architecture changes, cross-repo schema updates | **Opus** | Cascading effects across firmware and core |
-| Feature implementation, driver code, new modules | **Sonnet** | Standard embedded coding tasks |
-| Bug fixes, config changes, single-file edits | **Sonnet** | Well-scoped changes |
-| Code review with ESP32 safety checklist | **Sonnet** | Checklist-driven analysis |
-| Build/flash/test commands, simple config tweaks | **Haiku** | Fast CLI execution |
+### Decision Matrix — Pick the cheapest option that gets the job done
+
+| Task | Model | Version | Effort | Thinking | 1M | Cost Tier |
+|------|-------|---------|--------|----------|----|-----------|
+| Prayer calculation algorithms, high-latitude math | **Opus** | 4.6 | max | ON | no | $$$$ |
+| Architecture changes, cross-repo schema updates | **Opus** | 4.6 | high | ON | no | $$$ |
+| Debugging multi-module issues (scheduler+audio+prayer) | **Opus** | 4.6 | high | ON | no | $$$ |
+| Feature implementation, new driver/module | **Sonnet** | 4.6 | high | OFF | no | $$ |
+| Bug fixes, config changes | **Sonnet** | 4.6 | med | OFF | no | $$ |
+| Code review with ESP32 safety checklist | **Sonnet** | 4.6 | high | OFF | no | $$ |
+| Single-file edits, header updates | **Sonnet** | 4.6 | med | OFF | no | $$ |
+| Build/flash/test commands | **Haiku** | 4.5 | low | OFF | no | $ |
+| Simple config.json tweaks | **Haiku** | 4.5 | low | OFF | no | $ |
+| Git operations, file lookups | **Haiku** | 4.5 | low | OFF | no | $ |
+
+### Automation Rules
+
+**Version selection:**
+- Always use **4.6** for Opus and Sonnet — latest generation, strictly better
+- Haiku is **4.5** only (latest available)
+
+**When to enable thinking:**
+- ON: Prayer math (trig, angle-of-sun), high-latitude edge cases, multi-module debugging, config migration design
+- OFF: Everything else — embedded code follows clear patterns, thinking adds cost without proportional benefit
+
+**When to use 1M context:**
+- Almost never for this repo — firmware is ~20 source files, well under standard context limits
+- Only if reading ARCHITECTURE.md (36KB) + multiple source files + tests simultaneously
+- Never for build/flash/test, single-file edits, or standard feature work
+
+**Effort level guide:**
+- `max`: Only for prayer calculation math — wrong results mean wrong prayer times (high stakes)
+- `high`: Multi-file changes, code review (ESP32 safety matters), new modules
+- `med`: Bug fixes, config changes, single-file feature work
+- `low`: CLI execution (build/flash/test), simple lookups, git commands
+
+**Cost awareness (relative per task):**
+- Haiku 4.5 low/no-think = **1x baseline** (~$0.25/M in, $1.25/M out)
+- Sonnet 4.6 med/no-think = **~12x** (~$3/M in, $15/M out)
+- Opus 4.6 high/thinking = **~100x** (~$15/M in, $75/M out + thinking tokens)
+- 1M context adds premium on top — almost never needed for this repo
+- **Default to Sonnet 4.6 med/no-think** unless the task clearly needs more or less
 
 ## Common Development Patterns
 
